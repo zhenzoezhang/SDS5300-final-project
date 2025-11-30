@@ -1,0 +1,28 @@
+# Load datasets
+base_url <- "https://raw.githubusercontent.com/zoe-zg/SDS5300-final-project/main/data/"
+
+f1_results <- read.csv(paste0(base_url, "results.csv"), na.strings = "\\N")
+f1_constructor_results <- read.csv(paste0(base_url, "constructor_results.csv"), na.strings = "\\N")
+f1_races <- read.csv(paste0(base_url, "races.csv"), na.strings = "\\N")
+f1_drivers <- read.csv(paste0(base_url, "drivers.csv"), na.strings = "\\N")
+f1_constructors <- read.csv(paste0(base_url, "constructors.csv"), na.strings = "\\N")
+f1_driver_standings <- read.csv(paste0(base_url, "driver_standings.csv"), na.strings = "\\N")
+f1_constructor_standings <- read.csv(paste0(base_url, "constructor_standings.csv"), na.strings = "\\N")
+f1_quali <- read.csv(paste0(base_url, "qualifying.csv"), na.strings = "\\N")
+f1_lap_times <- read.csv(paste0(base_url, "lap_times.csv"), na.strings = "\\N")
+f1_pit_stops <- read.csv(paste0(base_url, "pit_stops.csv"), na.strings = "\\N")
+# f1_status <- read.csv(paste0(base_url, "status.csv"), na.strings = "\\N")
+# f1_seasons <- read.csv(paste0(base_url, "seasons.csv"), na.strings = "\\N")
+
+# Merge datasets
+f1_data <- f1_results %>%  
+  left_join(f1_races, by = "raceId") %>%
+  left_join(f1_drivers, by = "driverId") %>%
+  left_join(f1_constructors, by = "constructorId") %>% 
+  rename(driver_nationality = nationality.x, constructor_nationality = nationality.y) %>% 
+  select(raceId, year, round, circuitId, grid, positionOrder, points, 
+         driverRef, constructorRef, driver_nationality, constructor_nationality,
+         statusId, laps, fastestLapSpeed, fastestLapTime, fastestLap) 
+
+# f1_driver_standings <- f1_driver_standings %>% 
+#   left_join(f1_drivers, by = "driverId")
