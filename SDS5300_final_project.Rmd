@@ -42,10 +42,7 @@ season champion:
 # 2. Data cleaning and preparation
 
 The data comes from [Formula 1 World Championship (1950 - 2024)] (https://www.kaggle.com/datasets/rohanrao/formula-1-world-championship-1950-2020).
-The dataset consists of all information on the Formula 1 races, drivers, constructors, qualifying, circuits, lap times, pit stops, championships from 1950 till the latest 2024 season.
-
-Looking at races since year 2010 (modern era)
-note: this Kaggle/Ergast dataset uses the string ("\N") for missing data. we would need to handle this specifically, making sure numeric columns are numeric as they're supposed to
+The dataset consists of all information on the Formula 1 races, drivers, constructors, qualifying, circuits, lap times, pit stops, championships from 1950 till the 2024 season.
 
 
 ```{r}
@@ -104,9 +101,9 @@ f1_clean <- f1_data %>%
          fastestLapSpeed = as.numeric(as.character(fastestLapSpeed)),
          age = year - as.numeric(substr(dob, 1, 4)),
          positionOrder = positionOrder,
-         fastestLapTime = as.numeric(ms(f1_clean$fastestLapTime))
+         fastestLapTime = as.numeric(ms(f1_clean$fastestLapTime)),
+         race_completion = positionText
          ) %>% 
-  # missing values
   drop_na(grid, positionOrder)
   
 
@@ -123,10 +120,6 @@ f1_clean <- f1_data %>%
 - Scatterplot 
 - Q-Q plot 
 
-
-
-
-Identify and visualize the dominance of top teams in the modern era
 
 ```{r}
 # top 10 activity teams
