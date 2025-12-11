@@ -1,13 +1,34 @@
 ---
-title: "final project Winning Formula: An Analysis of F1 Race Success (2010-2024)"
+title: "Winning Formula: An Analysis of F1 Race Success (2010-2024)"
 author: "Andrew Fouty, Zoe Zhang"
 date: "`r Sys.Date()`"
 output: html_document
 ---
 
 
+This analysis focuses on the **modern era** (2010 - 2024) of Formula 1 racing. This period represents a distinct phase in F1 history characterized by:
+
+- **Technical Regulations**: Introduction of hybrid power units (2014), DRS (Drag Reduction System), and increased emphasis on aerodynamics
+- **Dominant Teams**: The rise of Mercedes' dominance, Red Bull's continued success, and Ferrari's competitive resurgence
+- **Driver Talent**: Era featuring champions like Hamilton, Vettel, Rosberg, and emerging stars
+- **Competition Evolution**: More sophisticated data analytics and race strategy
+
+
+We investigate factors that influence race performance (specifically, race finishing positions and fastest lap speed) in this modern competitive landscape. We are interested in whether race outcomes are driven more by the driver or the constructor. Specifically, we looked at
+
+- whether the finishing positions differ significantly different between British and German drivers (Britain and Germany have the most F1 drivers)
+- whether Fernando Alonso’s finishing positions differ between his tenures at Ferrari and Renault (Alonso has the longest career in this era and is a top performing driver)
+- whether the fastest lap speed differ significantly among top constructors (i.e. Ferrari, Mercedes, McLaren, Red Bull)
+- and fit a multiple linear regression model to predict the race finishing positions.
+
+
+
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+knitr::opts_chunk$set(
+	message = FALSE,
+	warning = FALSE,
+	include = FALSE
+)
 # load library
 library(tidyverse)
 library(car)
@@ -21,34 +42,24 @@ library(lubridate)
 library(PerformanceAnalytics)
 ```
 
-# 1. Introduction
-
-Questions:
-
-Is qualifying position a good predictor of race results? 
-are the big teams (Red Bull, Ferrari, McLauren, Mercedes) faster than the rest of the field.
 
 
-season champion: 
-1) get raceid from f1_races, max(round) by `year`
-2) get driverid from f1_driver_standings, filter on raceid from step 1 and position =1
-
-
-```{r}
-
-
-
-```
-
-
-# 2. Data cleaning and preparation
+# Data cleaning and preparation
 
 The data comes from [Formula 1 World Championship (1950 - 2024)] (https://www.kaggle.com/datasets/rohanrao/formula-1-world-championship-1950-2020).
-The dataset consists of all information on the Formula 1 races, drivers, constructors, qualifying, circuits, lap times, pit stops, championships from 1950 till the latest 2024 season.
+The dataset consists of all information on the Formula 1 races, drivers, constructors, qualifying, circuits, lap times, pit stops, championships from 1950 till the latest 2024 season. 
+
+The observational unit of the base dataset `result` is one result for one driver in one race, we then used left join to merge the other datasets with unique identifier such as raceId, driverId, constructorId, etc.
+
+Overall, this dataset is fairly complete in terms of missing data. The Kaggle/Ergast dataset uses the string ("\N") for missing data, so we treated the string \N in the input data as a missing value (NA), making sure numeric columns are numeric as they're supposed to. 
+
+We filtered out pit stop records exceeding 60 seconds, as these extreme values are most likely outliers caused by race stoppages (e.g. red flags) rather than active competitive pit stops. We also excluded race finishing position larger than 20 since there are only 20 cars on the track each race.
+
+We created a few new continuous and categorical/binary variables, including pit stop duration, driver's age at the year of race, finish on podium (Y/N), finish with points (Y/N). Not all variables were included in the final analysis and output.
 
 
 
-```{r}
+```{r echo=FALSE}
 # Load datasets
 base_url <- "https://raw.githubusercontent.com/zoe-zg/SDS5300-final-project/main/data/"
 
@@ -86,8 +97,9 @@ f1_data <- f1_results %>%
 
 ```
 
+Below are the dimensions of the cleaned dataframe.
 
-```{r}
+```{r echo=FALSE}
 
 # Text Character Replacement / Cleaning
 f1_data <- f1_data %>% mutate(fastestLapSeconds = as.numeric(ms(fastestLapTime)))
@@ -96,75 +108,53 @@ f1_clean <- f1_data %>%
   filter(year >= 2010) %>%
   mutate(driverRef = as.factor(driverRef),
          constructorRef = as.factor(constructorRef),
-         # create a binary variable for logistic regression
-         # did the driver score points (top 10 finish)
-         is_points = ifelse(positionOrder <= 10, 1, 0),
-         is_points = as.factor(is_points), 
+         # is_points = ifelse(positionOrder <= 10, 1, 0),
+         # is_points = as.factor(is_points), 
          # did the driver finish on the podium (top 3 finish)
-         is_podium = ifelse(positionOrder <=3, 1, 0),
-         is_podium = as.factor(is_podium),
+         # is_podium = ifelse(positionOrder <=3, 1, 0),
+         # is_podium = as.factor(is_podium),
          fastestLapSpeed = as.numeric(as.character(fastestLapSpeed)),
          age = year - as.numeric(substr(dob, 1, 4)),
-         race_completion = positionText
+         # race_completion = positionText
          ) %>% 
   # missing values
   drop_na(grid, positionOrder)
-  
 
 
+n_rows <- nrow(f1_clean)    # Number of rows
+n_cols <- ncol(f1_clean)    # Number of columns
 
-# dim(f1_clean)
-# str(f1_clean)
-# head(f1_clean)
-# unique(f1_data$constructorRef)
+# Create a new data frame to act as a summary table
+dimension_summary <- data.frame(
+  Dimension = c("Rows (Observations)", "Columns (Variables)"),
+  Count = c(n_rows, n_cols)
+)
+
+# Print the summary table
+print(dimension_summary)
+
 ```
 
-# 3. Explorative Analysis
+Below are the first 6 rows of the dataframe.
 
-- Histogram 
-- Boxplot 
-- Scatterplot 
-- Q-Q plot 
-
-```{r}
-# plot theme 
-
-sds5300 <- theme_classic(base_size = 14) +
-  theme(text = element_text(family = "serif"),
-        axis.text = element_text(color = "black"),
-        plot.title = element_text(face = "bold", hjust = 0.5, size = 16),
-        panel.grid.major.y = element_line(color = "grey90"),
-        panel.grid.major.x = element_line(color = "grey90")
-        )
-
+```{r echo=FALSE}
+head(f1_clean)
 ```
 
 
 
-Identify and visualize the dominance of top teams in the modern era
+# A sneak peek into the rivals
 
+## British vs German drivers
+Here we compare the race finishing positions between British and German drivers from the two most dominant countries in F1 racing and in automobile.
+By visual inspection, we can see clear mean race finishing positions between these two countries, with British drivers having a better race finishing results (finishing position lower is better).
 
-
-```{r}
-
-
-
-```
-
-##### boxplot 
-- Britain vs Spain drivers race finishing records comparison
-- Ferrari vs Red Bull vs McLaren vs Mercedes teams pit stop efficiency comparison
-
-
-###### 1) drivers' race finishing position
-
-```{r}
-
+```{r echo=FALSE}
 # driver counts by country
 
-f1_clean %>% group_by(driver_nationality) %>% 
-  summarize(unique_drivers = n_distinct(driverRef)) %>% 
-  arrange(desc(unique_drivers))
+# f1_clean %>% group_by(driver_nationality) %>% 
+#   summarize(unique_drivers = n_distinct(driverRef)) %>% 
+#   arrange(desc(unique_drivers))
 
 f1_brit_german <- f1_clean %>% filter(driver_nationality %in% c("British", "German"))
 
@@ -174,116 +164,174 @@ boxplot(positionOrder ~ driver_nationality,
         ylab = "Finishing Position",
         xlab = ""
           )
+```
 
-f1_country_most_driver <- f1_clean %>% filter(driver_nationality %in% c("British", "German", "Brazilian", "French", "Spanish"))
+We then performed a two-sample t-test to examine if the difference is significant. Using an alpha level of 0.05, the result shows that there is a statistically significant difference in the finishing position between the two groups. 
 
-boxplot(positionOrder ~ driver_nationality, 
-        data = f1_country_most_driver,
-        main = "Finishing Positions by Country",
-        xlab = "",
-        ylab = "Finishing Position",
-        las = 1)
+```{r echo=FALSE}
+ttest_brit_german <- t.test(positionOrder ~ driver_nationality, data = f1_brit_german, conf.level = 0.95)
+ttest_brit_german
+```
+
+We also performed a bootstrap test to confirm our results from the t-test. The bootstrapped CI and theoretical CI are very close and symmetrical; neither include 0. Also shown below is the Normal Q-Q plot of bootstrapped differences, normally distributed as we would anticipate.
+
+```{r echo=FALSE}
+
+set.seed(230) 
+
+# FILL IN REMAINING CODE
+n_samp <- 10000
+
+diff_brit_german <- rep(NA, n_samp)
+
+for (i in 1:n_samp) {
+  brit <- sample(f1_brit_german$positionOrder[f1_brit_german$driver_nationality == "British"], 
+                 sum(f1_brit_german$driver_nationality == "British"), replace = TRUE)
+  german <- sample(f1_brit_german$positionOrder[f1_brit_german$driver_nationality == "German"],
+                 sum(f1_brit_german$driver_nationality == "German"), replace = TRUE)
+  diff_brit_german[i] <- mean(brit) - mean(german)
+}
+
+# Calculate a 95% Bootstrap confidence interval. Show your results rounded to two decimal places
+ci <- quantile(diff_brit_german, c(0.025, 0.975))
+# round(ci, 2)
+
+# Histogram of bootstrap difference in means and add CI lines
+hist(diff_brit_german, col = "grey", main = "Bootstrapped Sample Means Diff in Race Finishing Position", xlab = "Race Finishing Position", breaks = 50)
+
+abline(v = ci, lwd = 3, col = "orange")
+abline(v = ttest_brit_german$conf.int, lwd = 3, col = "black", lty = 2)
+legend("topright", c("Theoretical CI","Bootstrap CI"), lwd = 3, col = c("black","orange"), lty = c(2,1))
 
 
-boxplot(fastestLapSpeed ~ constructorRef, 
-        data = f1_country_most_driver,
-        main = "Fastest Lap Speed by Team",
-        xlab = "",
-        ylab = "Fastest Lap Speed (km/h)",
-        las = 2)
+# Normal Q-Q plot of bootstrapped differences
+qqPlot(diff_brit_german, main = "Normal Q-Q Plot of Bootstrap Differences")
+
+
+```
+We also performed a permutation test to show that our results from all three tests are consistent.
+This suggests that none of our 10000 simulations produced a difference that was more extreme than the actual difference in means. We see a permuted p-value of 0, suggesting that the probability of seeing this difference between groups under null hypothesis is extremely unlikely.
+
+
+```{r echo=FALSE}
+
+set.seed(230)
+
+N <- 100000
+diffvals <- rep(NA, N)
+
+# assign countries at random to each group, compute statistic and store
+for (i in 1:N) {
+  shuffled_country <- sample(f1_brit_german$driver_nationality)  # default is replace = FALSE
+  diffvals[i] <- as.numeric(mean(f1_brit_german$positionOrder[shuffled_country == "British"], na.rm = T) -  mean(f1_brit_german$positionOrder[shuffled_country == "German"], na.rm = T))
+}
+
+# observed difference in medians 
+diff_obs <- mean(f1_brit_german$positionOrder[f1_brit_german$driver_nationality == "British"], na.rm = T) -
+  mean(f1_brit_german$positionOrder[f1_brit_german$driver_nationality == "German"], na.rm = T)
+
+# make histogram of permuted median differences
+hist(diffvals, 
+     main = "Permuted sample mean difference in finishing position", 
+     xlab = "Finishing position",
+     xlim = c(-2, 2),
+     col = "lightgrey",
+     breaks = 50)
+abline(v = diff_obs, col = "blue", lwd = 3, lty = "dotted")
+text(diff_obs - 0.2, 1500 , paste("Actual Diff in Means =", round(diffrate_obs,2)), srt = 90)
+
+paste0("The permuted p-value is ",  mean(abs(diffvals) >= abs(diff_obs)), ".")
 
 ```
 
-###### 2) top constructors' pit stop efficiency 
+
+
+
+
+
+## Alonso finishing positions different at Ferrari vs Renault
+
+
+add boxplot
+
+
+```{r echo=FALSE}
+f1_alonso_test <- f1_alonso[f1_alonso$constructorRef %in% c("mclaren", "ferrari"), ]
+
+
+ttest_alonso <- t.test(positionOrder ~ constructorRef, data = f1_alonso_test, conf.level = 0.95)
+ttest_alonso
+
+# p value lower than 0.01, CI doesn't include 0, reject null hypothesis, there is evidence of a difference between British and German drivers
+```
+
 
 ```{r}
-boxplot(log(duration) ~ constructorRef, 
-        data = f1_clean_pit,
-        main = "Pit stop duration by constructor",
-        xlab = "",
-        ylab = "Pit Stop Duration (seconds)",
-        las = 2)
+# To make grading easier, please leave the following line of code in your assignment
+set.seed(230) 
+
+# FILL IN REMAINING CODE
+n_samp <- 10000
+
+diff_alonso <- rep(NA, n_samp)
+
+for (i in 1:n_samp) {
+  mclaren <- sample(f1_alonso_test$positionOrder[f1_alonso_test$constructorRef == "mclaren"], 
+                 sum(f1_alonso_test$constructorRef == "mclaren"), replace = TRUE)
+  ferrari <- sample(f1_alonso_test$positionOrder[f1_alonso_test$constructorRef == "ferrari"],
+                 sum(f1_alonso_test$constructorRef == "ferrari"), replace = TRUE)
+  diff_alonso[i] <- mean(ferrari) - mean(mclaren)
+}
+
+# Calculate a 99% Bootstrap confidence interval. Show your results rounded to two decimal places
+ci <- quantile(diff_alonso, c(0.005, 0.995))
+round(ci, 2)
+
+# Histogram of bootstrap difference in means and add CI lines
+hist(diff_alonso, col = "grey", main = "Bootstrapped Sample Means Diff in Race Finishing Position", xlab = "Race Finishing Position", breaks = 50)
+
+abline(v = ci, lwd = 3, col = "orange")
+abline(v = ttest_alonso$conf.int, lwd = 3, col = "pink", lty = 2)
+legend("topright", c("Theoretical CI","Bootstrap CI"), lwd = 3, col = c("pink","orange"), lty = c(2,1))
+
+
+# Normal Q-Q plot of bootstrapped differences
+qqPlot(diff_alonso, main = "Normal Q-Q Plot of Bootstrap Differences")
 ```
 
 
+```{r echo=FALSE}
 
-##### histogram
-- fastest lap speed
-- driver's age
-- fastest lap time
-- mean pit stop time
+set.seed(230)
 
-We filtered out pit stop records exceeding 60 seconds, as these extreme values are most likely outliers caused by race stoppages (e.g. red flags) rather than active competitive pit stops.
+N <- 10000
+diffvals <- rep(NA, N)
 
-```{r}
-par(mfrow = c(2, 2))
-f1_clean_pit <- f1_clean %>% filter(duration <= 60)
+# assign countries at random to each group, compute statistic and store
+for (i in 1:N) {
+  shuffled_team <- sample(f1_alonso_test$constructorRef)  # default is replace = FALSE
+  diffvals[i] <- as.numeric(mean(f1_alonso_test$positionOrder[shuffled_team == "mclaren"], na.rm = T) -  mean(f1_alonso_test$positionOrder[shuffled_team == "ferrari"], na.rm = T))
+}
 
-hist(f1_clean$fastestLapSpeed,
-     breaks = 20,
-     col = "grey40", 
-     border = "white",
-     main = "Fastest Lap Speeds",
-     xlab = "Speed (km/h)",
-     las = 1) 
+# observed difference in medians 
+diff_obs <- mean(f1_alonso_test$positionOrder[f1_alonso_test$constructorRef == "mclaren"], na.rm = T) -
+  mean(f1_alonso_test$positionOrder[f1_alonso_test$constructorRef == "ferrari"], na.rm = T)
 
-hist(f1_clean$age,
-     breaks = 15,
-     col = "grey40",
-     border = "white",
-     main = "Driver's Age",
-     xlab = "Age (Years)",
-     las = 1)
-
-hist(f1_clean$fastestLapSeconds,
-     breaks = 20,
-     col = "grey40",
-     border = "white",
-     main = "Fastest Lap Times",
-     xlab = "Time (seconds)",
-     las = 1)
-
-hist(f1_clean_pit$duration,
-     breaks = 40, # More breaks to see the "two peaks" detail
-     col = "grey40",
-     border = "white",
-     main = "Pit Stop Duration (<60s)",
-     xlab = "Duration (seconds)",
-     las = 1)
-
-```
-
-##### Q-Q normal quantile plot
-
-```{r}
-
-par(mfrow = c(2, 2))
-qqPlot(f1_clean$fastestLapSpeed, 
-       main = "QQ Plot: Fastest Lap Speed",
-       ylab = "Speed (km/h)",
-       col = "red", pch = 19, cex = 0.5)
-
-qqPlot(f1_clean$age, 
-       main = "QQ Plot: Driver's Age",
-       ylab = "Age (Years",
-       col = "red", pch = 19, cex = 0.5)
-
-qqPlot(f1_clean$fastestLapSeconds, 
-       main = "QQ Plot: Fastest Lap Time",
-       ylab = "Time (Seconds)",
-       col = "red", pch = 19, cex = 0.5)
-
-qqPlot(log10(f1_clean_pit$duration), 
-       main = "QQ Plot: QQ Plot: Pit Stop Duration (<60s)",
-       ylab = "Duration (Seconds)",
-       col = "red", pch = 19, cex = 0.5)
+# make histogram of permuted median differences
+hist(diffvals, 
+     main = "Permuted sample median difference in finishing position", 
+     xlab = "Finishing position",
+     xlim = c(-6,6),
+     col = "lightgrey",
+     breaks = 50)
+abline(v = diff_obs, col = "blue", lwd = 3, lty = "dotted")
+text(diff_obs - 0.2, 1500 , paste("Actual Diff in Medians =", round(diffrate_obs,2)), srt = 90)
 
 ```
 
 
-##### scatter plot
 ###### 1) Alonso: quali vs. race result
-```{r}
+```{r echo=FALSE}
 f1_alonso <- f1_data[f1_data$driverRef == "alonso", ]
 
 ggplot(f1_alonso, aes( x = grid, y = positionOrder)) +
@@ -300,124 +348,11 @@ ggplot(f1_alonso, aes( x = grid, y = positionOrder)) +
 
 ```
 
-###### 2) top drivers' quali vs race result
-```{r}
-
-# --- Comparison of Top Drivers ---
-top_drivers <- c("hamilton", "vettel", "alonso", "max_verstappen", "norris", "piastri", "leclerc", "russell", "sainz", "michael_schumacher")
-
-f1_clean %>%
-  filter(driverRef %in% top_drivers) %>%
-  ggplot(aes(x = grid, y = positionOrder, color = driverRef)) +
-  geom_point(alpha = 0.4) +
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "grey50") +
-  # geom_smooth(method = "lm", color = "grey", se = FALSE, size = 0.5) +
-  labs(title = "Qualifying vs. Race Result: Top Drivers Comparison",
-       x = "Starting Grid Position",
-       y = "Finishing Position") +
-  theme_linedraw()  +
-  facet_wrap(~driverRef) +
-  theme(legend.position = "none", 
-        strip.text = element_text(size = 12, face = "bold", color = "Black"),
-        strip.background = element_rect(fill = "grey90"))
-
-# cor_data <- f1_clean %>%
-#   select(grid, positionOrder, fastestLapSpeed, points) %>%
-#   drop_na()
-# 
-#   
-# corrplot(cor(cor_data), method = "circle", type = "upper", 
-#          title = "Correlation Matrix: Top Drivers (2010-2020)", 
-#          mar = c(0,0,2,0), 
-#          addCoef.col = "black") # Add numbers
-```
-
-###### 3) drivers' fastest lap time at Silverstone by year (2004-2024)
-
-```{r}
-
-f1_britGP <- f1_data %>% filter(race_name == "British Grand Prix", year >= 2004) %>% 
-  mutate(decade = floor(year / 10) * 10, decade_label = as.factor(paste0(decade, "s")))
-
-scatterplot(fastestLapSeconds ~ year, 
-        data = f1_britGP,
-        main = "Fastest Lap Time by Country",
-        xlab = "",
-        ylab = "Fastest Lap Time (seconds)",
-        ylim = c(60, 120),
-        las = 1)
-```
-
-##### correlation matrix
-
-```{r}
-f1_corr <- f1_clean %>% dplyr::select(positionOrder, grid, fastestLapSpeed, year, age, duration)
-
-corrplot(cor(f1_corr), method = "color",
-         type = "upper", order = "hclust",
-         addCoef.col = "black",
-         tl.col = "black",
-         tl.srt = 45,
-         )
-
-plot(f1_corr, pch = 19, cex = .7, col = 'red', main = "Matrix plot of WB raw data")
-
-chart.Correlation(f1_corr, histogram = TRUE, pch = 19, main = "Matrix plot of WB raw data")
-library(GGally)
-ggcorr(f1_corr, label = T, size = 4, label_size = 4)
-```
 
 
 
 
-
-
-# 4. Tests (t-test, bootstrap, permutation)
-
-question: does driver's performance vary across consstructors, possibly Alonso, Renault and Ferrari
--	median starting position vs is_podium
--	driver’s mean fastestlaptime, at different teams, e.g. Alonso
-
-##### case 1: are finishing positions different between British and German drivers
-
-```{r}
-ttest_brit_german <- t.test(positionOrder ~ driver_nationality, data = f1_brit_german, conf.level = 0.99)
-ttest_brit_german
-
-# p value lower than 0.01, CI doesn't include 0, reject null hypothesis, there is evidence of a difference between British and German drivers
-```
-```{r}
-# To make grading easier, please leave the following line of code in your assignment
-set.seed(230) 
-
-# FILL IN REMAINING CODE
-n_samp <- 10000
-
-diff_brit_german <- rep(NA, n_samp)
-
-for (i in 1:n_samp) {
-  brit <- sample(f1_brit_german$positionOrder[f1_brit_german$driver_nationality == "British"], 
-                 sum(iron$Rock == "Sand"), replace = TRUE)
-  lime <- sample(iron$logIron[iron$Rock == "Lime"],
-                 sum(iron$Rock == "Lime"), replace = TRUE)
-  diffLogIron[i] <- mean(lime) - mean(sand)
-}
-
-
-```
-
-
-
-```{r}
-
-
-
-
-```
-
-
-##### correlation
-
+###### 2) Correlation
 ```{r}
 
 # cor_est <- cor(f1_clean$grid, f1_clean$positionOrder)
@@ -456,41 +391,171 @@ myResPlots(lm_alonso, label = "")
 ```
 
 
+## More plots
 
+The figure below includes the histgram plots of 
+- fastest lap speed
+- driver's age
+- fastest lap time
+- mean pit stop time
 
+```{r echo=FALSE}
+par(mfrow = c(2, 2))
+f1_clean_pit <- f1_clean %>% filter(duration <= 60)
 
+hist(f1_clean$fastestLapSpeed,
+     breaks = 20,
+     col = "grey40", 
+     border = "white",
+     main = "Fastest Lap Speeds",
+     xlab = "Speed (km/h)",
+     las = 1) 
 
+hist(f1_clean$age,
+     breaks = 15,
+     col = "grey40",
+     border = "white",
+     main = "Driver's Age",
+     xlab = "Age (Years)",
+     las = 1)
 
+hist(f1_clean$fastestLapSeconds,
+     breaks = 20,
+     col = "grey40",
+     border = "white",
+     main = "Fastest Lap Times",
+     xlab = "Time (seconds)",
+     las = 1)
 
-# 5. Multiple Linear Regression (Stepwise)
+hist(f1_clean_pit$duration,
+     breaks = 40, # More breaks to see the "two peaks" detail
+     col = "grey40",
+     border = "white",
+     main = "Pit Stop Duration (<60s)",
+     xlab = "Duration (seconds)",
+     las = 1)
 
-
-```{r}
-
-# Prepare data for model (filter to top teams to handle categorical levels)
-model_data <- f1_clean %>%
-  filter(constructorRef %in% top_teams) %>%
-  select(positionOrder, grid, constructorRef, year) %>%
-  drop_na()
-
-# Full Model
-full_lm <- lm(positionOrder ~ grid + constructorRef + year, data = model_data)
-
-# Backward Stepwise Selection
-step_lm <- step(full_lm, direction = "backward", trace = 0) # trace=0 hides output
-summary(step_lm)
+# hist(f1_brit_german$positionOrder[f1_brit_german$driver_nationality == "German"])
 
 ```
 
-```{r}
-par(mfrow=c(2,2))
-plot(step_lm)
+##### Q-Q normal quantile plot
+
+```{r echo=FALSE}
+
+par(mfrow = c(2, 2))
+qqPlot(f1_clean$fastestLapSpeed, 
+       main = "QQ Plot: Fastest Lap Speed",
+       ylab = "Speed (km/h)",
+       col = "red", pch = 19, cex = 0.5)
+
+qqPlot(f1_clean$age, 
+       main = "QQ Plot: Driver's Age",
+       ylab = "Age (Years",
+       col = "red", pch = 19, cex = 0.5)
+
+qqPlot(f1_clean$fastestLapSeconds, 
+       main = "QQ Plot: Fastest Lap Time",
+       ylab = "Time (Seconds)",
+       col = "red", pch = 19, cex = 0.5)
+
+qqPlot(log10(f1_clean_pit$duration), 
+       main = "QQ Plot: QQ Plot: Pit Stop Duration (<60s)",
+       ylab = "Duration (Seconds)",
+       col = "red", pch = 19, cex = 0.5)
 
 ```
 
 
 
 
+
+
+# A closer look
+## [ANOVA] Ferrari vs Red Bull vs McLaren vs Mercedes
+
+
+
+
+
+
+## [Multiple Linear Regression] positionOrder ~ a+b+c+d
+
+
+
+# TBD
+
+```{r echo=FALSE}
+
+f1_country_most_driver <- f1_clean %>% filter(driver_nationality %in% c("British", "German", "Brazilian", "French", "Spanish"))
+
+boxplot(positionOrder ~ driver_nationality, 
+        data = f1_country_most_driver,
+        main = "Finishing Positions by Country",
+        xlab = "",
+        ylab = "Finishing Position",
+        las = 1)
+
+
+boxplot(fastestLapSpeed ~ constructorRef, 
+        data = f1_country_most_driver,
+        main = "Fastest Lap Speed by Team",
+        xlab = "",
+        ylab = "Fastest Lap Speed (km/h)",
+        las = 2)
+
+```
+
+
+
+
+###### 2) top drivers' quali vs race result
+```{r echo=FALSE}
+
+# --- Comparison of Top Drivers ---
+top_drivers <- c("hamilton", "vettel", "alonso", "max_verstappen", "norris", "piastri", "leclerc", "russell", "sainz", "michael_schumacher")
+
+f1_clean %>%
+  filter(driverRef %in% top_drivers) %>%
+  ggplot(aes(x = grid, y = positionOrder, color = driverRef)) +
+  geom_point(alpha = 0.4) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "grey50") +
+  # geom_smooth(method = "lm", color = "grey", se = FALSE, size = 0.5) +
+  labs(title = "Qualifying vs. Race Result: Top Drivers Comparison",
+       x = "Starting Grid Position",
+       y = "Finishing Position") +
+  theme_linedraw()  +
+  facet_wrap(~driverRef) +
+  theme(legend.position = "none", 
+        strip.text = element_text(size = 12, face = "bold", color = "Black"),
+        strip.background = element_rect(fill = "grey90"))
+
+# cor_data <- f1_clean %>%
+#   select(grid, positionOrder, fastestLapSpeed, points) %>%
+#   drop_na()
+# 
+#   
+# corrplot(cor(cor_data), method = "circle", type = "upper", 
+#          title = "Correlation Matrix: Top Drivers (2010-2020)", 
+#          mar = c(0,0,2,0), 
+#          addCoef.col = "black") # Add numbers
+```
+
+###### 3) drivers' fastest lap time at Silverstone by year (2004-2024)
+
+```{r echo=FALSE}
+
+f1_britGP <- f1_data %>% filter(race_name == "British Grand Prix", year >= 2004) %>% 
+  mutate(decade = floor(year / 10) * 10, decade_label = as.factor(paste0(decade, "s")))
+
+scatterplot(fastestLapSeconds ~ year, 
+        data = f1_britGP,
+        main = "Fastest Lap Time by Country",
+        xlab = "",
+        ylab = "Fastest Lap Time (seconds)",
+        ylim = c(60, 120),
+        las = 1)
+```
 
 
 
@@ -660,183 +725,4 @@ print(odds_ratios)
 # Example: If Grid OR < 1, starting further back decreases odds of points.
 # Example: If Mercedes OR > 1, being in Mercedes increases odds of points vs baseline team.
 ```
-
-
-# Delete
-
-Permutation test
-We test if Max Verstappen's average finishing position is significantly better (lower) than the population mean using a permutation test.
-
-```{r}
-
-# Observed difference
-verstappen_mean <- mean(f1_clean$positionOrder[f1_clean$driverRef == "max_verstappen"])
-population_mean <- mean(f1_clean$positionOrder)
-obs_diff <- population_mean - verstappen_mean # Positive means Verstappen is faster (lower position)
-
-# Permutation loop
-set.seed(123)
-n_perms <- 2000
-perm_diffs <- numeric(n_perms)
-
-for(i in 1:n_perms) {
-  # Shuffle the driver labels
-  shuffled_drivers <- sample(f1_clean$driverRef)
-  
-  # Calculate mean for "fake" Hamiltons in this shuffled set
-  perm_verstappebn_mean <- mean(f1_clean$positionOrder[shuffled_drivers == "max_verstappen"])
-  perm_diffs[i] <- population_mean - perm_verstappebn_mean
-}
-
-# Calculate p-value
-p_val <- mean(perm_diffs >= obs_diff)
-print(paste("Observed Diff:", round(obs_diff, 2)))
-print(paste("P-value:", p_val))
-
-```
-
-
-##### plot
-```{r}
-par(mfrow=c(2,2)) 
-
-# 1. Histogram: Distribution of Fastest Lap Speeds
-hist(f1_clean$fastestLapSpeed, 
-     main = "Histogram of Fastest Lap Speeds", 
-     xlab = "Speed (km/h)", col = "skyblue", border = "white")
-
-# 2. Boxplot: Starting Grid Position vs. Did they Score Points?
-boxplot(grid ~ is_points, data = f1_clean,
-        main = "Grid Position vs. Points Finish",
-        xlab = "Scored Points (0=No, 1=Yes)", ylab = "Grid Position",
-        col = c("lightcoral", "skyblue"))
-
-
-boxplot(grid ~ driverRef , data = f1_clean,
-        main = "Grid Position vs. Points Finish",
-        xlab = "Scored Points (0=No, 1=Yes)", ylab = "Grid Position",
-        col = c("lightcoral", "skyblue"))
-
-# 3. Scatterplot: Grid Position vs. Finishing Position
-plot(f1_clean$grid, f1_clean$positionOrder,
-     main = "Scatterplot: Grid vs. Finish",
-     xlab = "Starting Grid Position", ylab = "Finishing Position",
-     pch = 19, col = rgb(0,0,0,0.2)) 
-
-# 4. Normal Quantile Plot (QQ Plot)
-# Checking if Lap Speeds are normally distributed
-qqnorm(f1_clean$fastestLapSpeed, main = "QQ Plot: Lap Speeds")
-qqline(f1_clean$fastestLapSpeed, col = "red")
-
-```
-
-##### Driver Quali vs Race Result Analysis
-Question: how strong does qualifying performance (grid) predict race performance (positionOrder) for specific drivers, and overall? 
-
-Driver 1: Lewis Hamilton
-```{r}
-
-driver_data_hamilton <- f1_clean %>% filter(driverRef == "hamilton")
-correlation <- cor(driver_data_hamilton$grid, driver_data_hamilton$positionOrder, use = "complete.obs")
-
-ggplot(driver_data_hamilton, aes(x = grid, y = positionOrder)) + 
-  geom_point(color = "lightblue", alpha = 0.6) +
-  geom_smooth(method = "lm", color = "orange", se = FALSE) +
-  labs(
-    title = paste("Qualifying vs. Race Result:", toupper("Lewis Hamilton")),
-    subtitle = paste("Correlation:", round(correlation, 2)),
-    x = "Starting Grid Position", 
-    y = "Finishing Position") +
-  theme_bw()
-  
-```
-
-
-##### fastest average speed by circuit
-Question: which circuits are the fastest? speed distribution
-
-Fastest lap speed across all tracks
-```{r}
-
-
-# fastest lap speed comparison across all tracks
-f1_clean %>%
-  ggplot(aes(x = race_name, y = fastestLapSpeed, fill = race_name)) +
-  geom_boxplot(outlier.size = 0.5, alpha = 0.8) +
-  labs(title = "Fastest Lap Speed Comparison across tracks",
-       x = NULL,
-       y = "Fastest Lap Speed (km/h)") +
-  coord_flip() +
-  theme_bw() +
-  theme(legend.position = "none",
-        axis.text.y = element_text(size = 6))
-```
-
-```{r}
-# top 10 activity teams
-top_teams <- f1_clean %>%
-  count(constructorRef, sort = TRUE) %>%
-  top_n(10) %>%
-  pull(constructorRef)
-
-# par(mar = c(8,4,4,2))
-boxplot(positionOrder ~ constructorRef, 
-        data = f1_clean %>% filter(constructorRef %in% top_10_teams),
-        main = "Finishing Position by Team (2010-2024)",
-        ylab = "Finishing Position",
-        col = "lightblue",
-        las = 2) 
-
-f1_clean %>%
-  filter(constructorRef %in% top_teams) %>% 
-  mutate(constructorRef = reorder(constructorRef, positionOrder, median)) %>% 
-  ggplot(aes(x = constructorRef, y = positionOrder, fill = constructorRef)) +
-  geom_boxplot(ooutlier.alpha = 0.3) +
-  labs(title = "Finishing Position Distribution by Team (2010-2024)",
-       subtitle = "Ordered by Median Finishing Position (Lower is Better)",
-       x = "Team",
-       y = "Finishing Position") +
-  theme_bw() +
-  coord_flip() 
-
-```
-
-##### [explorative] f1dataR package 
-```{r}
-# install.packages("f1dataR")
-# library(f1dataR)
-
-if (!require("remotes")) install.packages("remotes")
-remotes::install_github("SCasanova/f1dataR")
-library(f1dataR)
-```
-
-Telemetry plotting
-```{r}
-get_driver_name()
-
-f1_laps <- load_laps(season = 2025, round = 15)
-f1_driver_telemetry <- load_driver_telemetry(season = "current", round = "last", session = "R", driver = "all", laps = "all")
-
-ham <- load_driver_telemetry(
-    season = 2023,
-    round = "Bahrain",
-    session = "Q",
-    driver = "HAM",
-    laps = "fastest"
-  )
-ham <- load_driver_telemetry(2022, 1, "Q", driver = "HAM", laps = "fastest")
-per <- load_driver_telemetry(2022, 1, "Q", driver = "PER", laps = "fastest")
-
-telem <- bind_rows(lec, ham, per) %>%
-  select(rpm, speed, n_gear, throttle, brake, drs, distance, time, driver_code) %>%
-  mutate(drs = ifelse(drs == 12, 1, 0))
-
-drivercolours <- c(
-  "LEC" = get_driver_color("LEC", 2022, 1),
-  "HAM" = get_driver_color("HAM", 2022, 1),
-  "PER" = get_driver_color("PER", 2022, 1)
-)
-```
-
 
