@@ -166,7 +166,7 @@ boxplot(positionOrder ~ driver_nationality,
           )
 ```
 
-We then performed a two-sample t-test to examine if the difference is significant. Using an alpha level of 0.05, the result shows that there is a statistically significant difference in the finishing position between the two groups. 
+We then performed a two-sample t-test to examine if the difference is significant. Using an \alpha level of 0.05, the result shows that there is a statistically significant difference in the finishing position between the two groups. 
 
 ```{r echo=FALSE}
 ttest_brit_german <- t.test(positionOrder ~ driver_nationality, data = f1_brit_german, conf.level = 0.95)
@@ -238,7 +238,7 @@ hist(diffvals,
      col = "lightgrey",
      breaks = 50)
 abline(v = diff_obs, col = "blue", lwd = 3, lty = "dotted")
-text(diff_obs - 0.2, 1500 , paste("Actual Diff in Means =", round(diffrate_obs,2)), srt = 90)
+text(diff_obs - 0.2, 1500 , paste("Actual Diff in Means =", round(diff_obs,2)), srt = 90)
 
 paste0("The permuted p-value is ",  mean(abs(diffvals) >= abs(diff_obs)), ".")
 
@@ -252,12 +252,22 @@ paste0("The permuted p-value is ",  mean(abs(diffvals) >= abs(diff_obs)), ".")
 ## Alonso finishing positions different at Ferrari vs Renault
 
 
-add boxplot
+```{r echo= FALSE}
+f1_alonso_test <- f1_clean %>% 
+  filter(driverRef == "alonso", constructorRef %in% c("mclaren", "ferrari")) %>% 
+  droplevels()
+
+boxplot(positionOrder ~ constructorRef,
+        data = f1_alonso_test,
+        main = "Alonso Race Finishing Position at McLaren vs Ferrari",
+        ylab = "Finishing Position",
+        xlab = ""
+          )
+```
+
 
 
 ```{r echo=FALSE}
-f1_alonso_test <- f1_alonso[f1_alonso$constructorRef %in% c("mclaren", "ferrari"), ]
-
 
 ttest_alonso <- t.test(positionOrder ~ constructorRef, data = f1_alonso_test, conf.level = 0.95)
 ttest_alonso
@@ -313,19 +323,19 @@ for (i in 1:N) {
   diffvals[i] <- as.numeric(mean(f1_alonso_test$positionOrder[shuffled_team == "mclaren"], na.rm = T) -  mean(f1_alonso_test$positionOrder[shuffled_team == "ferrari"], na.rm = T))
 }
 
-# observed difference in medians 
+# observed difference in means 
 diff_obs <- mean(f1_alonso_test$positionOrder[f1_alonso_test$constructorRef == "mclaren"], na.rm = T) -
   mean(f1_alonso_test$positionOrder[f1_alonso_test$constructorRef == "ferrari"], na.rm = T)
 
-# make histogram of permuted median differences
+# make histogram of permuted mean differences
 hist(diffvals, 
-     main = "Permuted sample median difference in finishing position", 
+     main = "Permuted sample mean difference in finishing position", 
      xlab = "Finishing position",
      xlim = c(-6,6),
      col = "lightgrey",
      breaks = 50)
 abline(v = diff_obs, col = "blue", lwd = 3, lty = "dotted")
-text(diff_obs - 0.2, 1500 , paste("Actual Diff in Medians =", round(diffrate_obs,2)), srt = 90)
+text(diff_obs - 0.2, 1500 , paste("Actual Diff in Means =", round(diff_obs,2)), srt = 90)
 
 ```
 
@@ -361,18 +371,18 @@ ggplot(f1_alonso, aes( x = grid, y = positionOrder)) +
 # f1_clean_sub %>%
 #   filter(driverRef %in% top_teams)
 
-plot(jitter(grid, factor = 2) ~ jitter(positionOrder, factor = 2), data = f1_clean_alonso, main = "", 
+plot(jitter(grid, factor = 2) ~ jitter(positionOrder, factor = 2), data = f1_alonso, main = "", 
      xlab = "", ylab = "", pch = 19, col = "blue")
-abline(lm(grid ~ positionOrder, data = f1_clean_alonso), col = "red")
+abline(lm(grid ~ positionOrder, data = f1_alonso), col = "red")
 
 
-lm_alonso <- lm(grid ~ positionOrder, data = f1_clean_alonso)
+lm_alonso <- lm(grid ~ positionOrder, data = f1_alonso)
 summary(lm_alonso)
-
-r <- rstudent(lm_alonso)
-f <- fitted(lm_alonso)
-
-plot(r ~ f)
+# 
+# r <- rstudent(lm_alonso)
+# f <- fitted(lm_alonso)
+# 
+# plot(r ~ f)
 
 source("https://raw.githubusercontent.com/jreuning/sds230_files/refs/heads/main/regJDRS.txt")
 myResPlots(lm_alonso, label = "")
@@ -555,174 +565,5 @@ scatterplot(fastestLapSeconds ~ year,
         ylab = "Fastest Lap Time (seconds)",
         ylim = c(60, 120),
         las = 1)
-```
-
-
-
-
-Top 15 fastest circuits
-```{r}
-top_15_names <- f1_clean %>%
-  group_by(name) %>%
-  summarise(mean_speed = mean(fastestLapSpeed)) %>%
-  slice_max(mean_speed, n = 15) %>%
-  pull(name)
-
-top_15_data <- circuit_speeds %>% filter(name %in% top_15_names)
-
-ggplot(top_15_data, aes(x = reorder(name, fastestLapSpeed), y = fastestLapSpeed, fill = name)) +
-  # The Violin shows the distribution shape (density)
-  geom_violin(trim = FALSE, alpha = 0.6) +
-
-  # Adding a narrow boxplot inside gives you the median/quartiles (Best of both worlds)
-  geom_boxplot(width = 0.1, fill = "white", outlier.shape = NA) +
-  
-  coord_flip() + # Horizontal is easier to read
-  
-  labs(title = "Top 15 Fastest F1 Circuits (Violin Plot)",
-       subtitle = "Shape represents distribution of lap speeds. White bar is the interquartile range.",
-       x = NULL,
-       y = "Fastest Lap Speed (km/h)") +
-  theme_bw() +
-  theme(legend.position = "none")
-  
-# distribution of speeds of all races
-ggplot(circuit_speeds, aes(x = fastestLapSpeed)) +
-  geom_histogram(binwidth = 5, fill = "steelblue", color = "white", alpha = 0.7) +
-  labs(title = "Distribution of Fastest Lap Speeds Across All Races",
-       x = "Speed (km/h)",
-       y = "Count") +
-  theme_bw()
-```
-
-
-
-```{r}
-# Top 5 Teams only (to keep categorical variables manageable)
-
-f1_final <- f1_clean %>%
-  filter(constructorRef %in% top_teams) %>%
-  droplevels()
-
-# --- 2. Graphics ---
-par(mfrow=c(2,2)) # Set up 2x2 plotting grid
-
-# 1. Scatterplot: Grid vs Finish
-plot(positionOrder ~ grid, data = f1_final, main = "Grid vs. Finish Position", 
-     xlab = "Grid Position", ylab = "Finish Position", pch = 19, col = "blue")
-abline(lm(positionOrder ~ grid, data = f1_final), col = "red")
-
-# 2. Boxplot: Finish by Team
-boxplot(positionOrder ~ constructorRef, data = f1_final, main = "Finish by Team", 
-        las = 2, col = "lightblue")
-
-# 3. Histogram: Distribution of Grid Positions
-hist(f1_final$grid, main = "Distribution of Grid Positions", 
-     xlab = "Grid Position", col = "lightgreen", border = "white")
-
-# 4. Normal Quantile Plot (on residuals of a simple model)
-simple_model <- lm(positionOrder ~ grid, data = f1_final)
-qqnorm(residuals(simple_model), main = "Normal Q-Q Plot of Residuals")
-qqline(residuals(simple_model), col = "red")
-
-par(mfrow=c(1,1)) # Reset plotting grid
-
-# --- 3. Basic Tests ---
-# 1. T-test: Compare average finish position of Mercedes vs. Ferrari
-mercedes_pos <- f1_final$positionOrder[f1_final$constructorRef == "mercedes"]
-ferrari_pos <- f1_final$positionOrder[f1_final$constructorRef == "ferrari"]
-
-t_test_result <- t.test(mercedes_pos, ferrari_pos)
-print(t_test_result)
-# Interpretation: If p-value < 0.05, there is a significant difference in mean finish position.
-
-# 2. Correlation
-cor_val <- cor(f1_final$grid, f1_final$positionOrder)
-cat("Correlation between Grid and Finish:", cor_val, "\n")
-
-# 3. Bootstrap CI for Correlation
-corr_fun <- function(data, indices) {
-  d <- data[indices, ]
-  return(cor(d$grid, d$positionOrder))
-}
-set.seed(123)
-boot_results <- boot(data = f1_final, statistic = corr_fun, R = 1000)
-print(boot.ci(boot_results, type = "perc"))
-
-# --- 4. Permutation Test ---
-# Hypothesis: Does Lewis Hamilton finish significantly better (lower position) than the average of all other drivers?
-# Test Statistic: Difference in means (Others - Hamilton). Positive value means Hamilton is better (lower score).
-
-obs_diff <- mean(f1_final$positionOrder[f1_final$driverRef != "hamilton"]) - 
-            mean(f1_final$positionOrder[f1_final$driverRef == "hamilton"])
-
-cat("Observed Difference (Others - Hamilton):", obs_diff, "\n")
-
-```
-
-
- Permutation test
-```{r}
-# Permutation Loop
-set.seed(123)
-n_perms <- 1000
-perm_diffs <- numeric(n_perms)
-all_positions <- f1_final$positionOrder
-
-for (i in 1:n_perms) {
-  # Shuffle the positions
-  shuffled_pos <- sample(all_positions)
-  
-  # Assign shuffled positions to groups based on original indices
-  # (We keep the group sizes fixed: Hamilton vs Others)
-  hamilton_indices <- which(f1_final$driverRef == "hamilton")
-  
-  mean_hamilton_perm <- mean(shuffled_pos[hamilton_indices])
-  mean_others_perm <- mean(shuffled_pos[-hamilton_indices])
-  
-  perm_diffs[i] <- mean_others_perm - mean_hamilton_perm
-}
-
-# P-value: Proportion of permutations where the difference is as extreme or more extreme than observed
-p_value <- mean(perm_diffs >= obs_diff)
-cat("Permutation Test P-value:", p_value, "\n")
-hist(perm_diffs, main = "Permutation Distribution", xlab = "Difference in Means", col = "gray")
-abline(v = obs_diff, col = "red", lwd = 2)
-
-```
-
-
-Multiple Regression 
-```{r}
-# --- 5. Multiple Regression ---
-# Using Stepwise Regression (Backward)
-# Model: Predict Finish Position based on Grid, Team, and Year
-full_model <- lm(positionOrder ~ grid + constructorRef + year, data = f1_final)
-step_model <- step(full_model, direction = "backward", trace = 0) # trace=0 suppresses output
-
-summary(step_model)
-
-# Residual Plots for the final model
-par(mfrow=c(2,2))
-plot(step_model)
-par(mfrow=c(1,1))
-
-# Interpretation:
-# - Intercept: Baseline finish position.
-# - Grid: For every 1 spot further back on the grid, finish position increases by approx [coefficient].
-# - Constructor: Coefficients show difference relative to the reference team.
-# - Year: Effect of time on finish position (if significant).
-
-# --- 6. Advanced Technique: Binary Logistic Regression ---
-# Predict probability of finishing in the points (Top 10)
-log_model <- glm(in_points ~ grid + constructorRef, data = f1_final, family = "binomial")
-summary(log_model)
-
-# Interpretation of Odds Ratios
-odds_ratios <- exp(coef(log_model))
-cat("Odds Ratios:\n")
-print(odds_ratios)
-# Example: If Grid OR < 1, starting further back decreases odds of points.
-# Example: If Mercedes OR > 1, being in Mercedes increases odds of points vs baseline team.
 ```
 
